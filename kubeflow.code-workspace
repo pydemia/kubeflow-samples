@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"python.pythonPath": "${env:HOME}/apps/anaconda3/envs/kfserving/bin/python",
+		"python.condaPath": "${env:HOME}/apps/anaconda3/bin/conda",
+		"python.dataScience.sendSelectionToInteractiveWindow": true,
+		"python.terminal.executeInFileDir": true,
+		"python.linting.pylintEnabled": false
+	}
+}

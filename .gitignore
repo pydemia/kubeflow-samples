@@ -1,3 +1,27 @@
+# User-defined
+
+istioctl
+*.pem
+*crt
+*rsa
+*.pub
+
+# Large files
+examples/inferenceservices/mobilenet/test_explainer_local_output_explain.json
+**variables**
+src/models/kfserving_ttac_ttac/**
+
+# Secrets
+gcloud-application-credentials.json
+ds-ai-platform-yjkim-kube-admin-sa-4129b72eaa4a-key.json
+s3-private.yaml
+pydemia-s3-private-key.yaml
+yjkim1-s3-private-key.yaml
+
+.DS_Store
+DS_Store
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -127,3 +151,4 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+.DS_Store
