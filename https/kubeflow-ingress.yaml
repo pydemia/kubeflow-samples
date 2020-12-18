@@ -1,0 +1,31 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: kubeflow-ingress
+  namespace: kubeflow
+  annotations:
+    # certmanager.k8s.io/cluster-issuer: letsencrypt
+    kubernetes.io/ingress.class: nginx
+    # On Google Kubernetes Engine,
+    # if no annotation is defined under the metadata section,
+    # the Ingress Resource uses the L7 load balancer to serve traffic.
+    # This method can also be forced by setting the annotation's value
+    # to gce as shown below:
+    # annotations: kubernetes.io/ingress.class: gce
+    nginx.ingress.kubernetes.io/ssl-redirect: "false" # "true"
+    # kubernetes.io/tls-acme: "true"
+    # nginx.ingress.kubernetes.io/tls-acme: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  # tls:
+  # - hosts:
+  #   - kubeflow.pydemia.org
+  #   secretName: tls-secret-kibana
+  rules:
+  - http:
+      paths:
+      - path: /
+        backend:
+          serviceName: centraldashboard
+          servicePort: 80
+    host: kubeflow.pydemia.org
