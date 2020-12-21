@@ -32,23 +32,29 @@ Tiller (the Helm server-side component) has been updated to gcr.io/kubernetes-he
 ## Deploy `nginx-ingress-controller` with RBAC enabled
 
 ```bash
-NAMESPACE="kubeflow"
+helm repo add stable https://charts.helm.sh/stable
+
+# NAMESPACE="kubeflow"
+NAMESPACE="istio-system"
 helm install \
   --name nginx-ingress \
   --namespace ${NAMESPACE} \
   stable/nginx-ingress \
   --set rbac.create=true \
-  --set controller.publishService.enabled=true
+  --set controller.publishService.enabled=true \
+  --set ingressShim.defaultIssuerName=letsencrypt-prod
+  # --set ingressShim.defaultIssuerKind=ClusterIssuer 
 # RBAC disabled
 # helm install --name nginx-ingress stable/nginx-ingress
+# helm delete --purge nginx-ingress
 ```
 
 ```bash
-$ kubectl get service nginx-ingress-controller
+$ kubectl -n ${NAMESPACE} get service nginx-ingress-controller
 
 NAME:   nginx-ingress
 LAST DEPLOYED: Sat Dec 19 03:12:01 2020
-NAMESPACE: kubeflow
+NAMESPACE: istio-system
 STATUS: DEPLOYED
 
 RESOURCES:
@@ -147,8 +153,62 @@ spec:
       name: letsencrypt
     http01: {}
 EOF
+
+## Let's Encrypt
+
+```yml
+```yml
+USER_EMAIL="pydemia@gmail.com"
+DOMAIN="kubeflow.pydemia.org"
+
+cat << EOF | kubectl apply -f -
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt
+  namespace: cert-manager
+spec:
+  acme:
+    email: pydemia@gmail.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    preferredChain: "ISRG Root X1"
+    privateKeySecretRef:
+      name: letsencrypt
+    http01: {}
+EOF
 ```
 
+
+```yml
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: nginx-tls
+  namespace: YOUR NAMESPACE
+spec:
+  secretName: nginx-tls
+  issuerRef:
+    name: letsencrypt
+    kind: ClusterIssuer
+  dnsNames:
+    - "*.pydemia.org"
+  acme:
+    config:
+      - dns01:
+          provider: route53
+        domains:
+          - "*.pydemia.org"
+```
+
+```bash
+kubectl apply -f issuer.yaml
+# kubectl apply -f clusterissuer.yaml
+# kubectl apply -f certificate-http-nginx.yaml
+
+kubectl describe -f issuer.yaml
+# kubectl describe -f clusterissuer.yaml
+# kubectl describe -f certificate-http-nginx.yaml
+```
 ## Deploy an Ingress Resource
 
 https://github.com/GoogleCloudPlatform/community/blob/master/tutorials/nginx-ingress-gke/ingress-resource.yaml
@@ -158,5 +218,120 @@ https://github.com/GoogleCloudPlatform/community/blob/master/tutorials/nginx-ing
 #   kubernetes.io/ingress.class: nginx
 
 kubectl apply -f kubeflow-ingress.yaml
+kubectl describe -f kubeflow-ingress.yaml
 ```
 
+```yml
+...
+metadata:
+  name: kubeflow-ingress
+  namespace: kubeflow
+  annotations:
+    # cert-manager.io/issuer: letsencrypt-prod
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    kubernetes.io/ingress.class: nginx
+...
+spec:
+  tls:
+  - hosts:
+    - kubeflow.pydemia.org
+    secretName: nginx-tls
+...
+```
+
+Then, Automatically create `certificates.cert-manager.io` named `nginx-tls`.
+You should edit this as the following:
+
+
+
+```bash
+kubectl -n kubeflow edit certificates.cert-manager.io nginx-tls
+```
+
+---
+Activate Istio Authorization
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ClusterRbacConfig
+metadata:
+  name: default
+spec:
+  mode: 'ON_WITH_INCLUSION'
+  inclusion:
+    namespaces: ["default"]
+EOF
+```
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: centraldashboard
+  namespace: kubeflow
+spec:
+  rules:
+  - services:
+    - centraldashboard.kubeflow.svc.cluster.local
+  # - services: ["*"]
+  #   methods: ["GET"]
+  #   constraints:
+  #   - key: "destination.labels[app]"
+  #     values: ["productpage", "details", "reviews", "ratings"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: bind-centraldashboard
+  namespace: kubeflow
+spec:
+  subjects:
+    - user: "*"
+  # - properties:
+  #     source.namespace: istio-system
+  roleRef:
+    kind: ServiceRole
+    name: centraldashboard
+EOF
+```
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: centraldashboard-auth
+  namespace: kubeflow
+spec:
+  selector:
+    matchLabels:
+      app: centraldashboard
+  rules:
+  - to:
+    - operation:
+        methods: ["GET", "POST"]
+EOF
+```
+
+
+https://istio.io/latest/docs/tasks/security/authorization/authz-http/
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: centraldashboard-auth
+  namespace: kubeflow
+spec:
+  selector:
+    matchLabels:
+      app: centraldashboard
+  rules:
+  - to:
+    - operation:
+        methods: ["GET", "POST"]
+EOF
+```

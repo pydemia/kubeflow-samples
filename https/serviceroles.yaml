@@ -1,0 +1,31 @@
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: centraldashboard
+  namespace: kubeflow
+spec:
+  rules:
+  - services:
+    - centraldashboard.kubeflow.svc.cluster.local
+    methods: ["GET", "POST"]
+  # - services: ["*"]
+  #   methods: ["GET"]
+  #   constraints:
+  #   - key: "destination.labels[app]"
+  #     values: ["productpage", "details", "reviews", "ratings"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: bind-centraldashboard
+  namespace: kubeflow
+  labels:
+    app.kubernetes.io/name: centraldashboard
+spec:
+  subjects:
+    - user: "*"
+  # - properties:
+  #     source.namespace: istio-system
+  roleRef:
+    kind: ServiceRole
+    name: centraldashboard
