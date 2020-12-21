@@ -1,0 +1,28 @@
+# apiVersion: cert-manager.io/v1alpha2
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: nginx-tls
+  namespace: istio-system
+spec:
+  dnsNames:
+  - kf-dev.pydemia.org
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: letsencrypt-prod
+  secretName: nginx-tls-prod
+  acme:
+    config:
+      - http01:
+        ingressClass: nginx
+        domains:
+        - kf-dev.pydemia.org
+  # If you use ‘ingress-gce’, aka the GCLB ingress controller
+  # acme:
+  #   config:
+  #   - http01:
+  #       ingress: name-of-gce-ingress-resource
+  #     domains:
+  #     - example.com
+  #     - www.example.com

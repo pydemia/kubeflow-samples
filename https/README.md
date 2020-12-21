@@ -32,23 +32,29 @@ Tiller (the Helm server-side component) has been updated to gcr.io/kubernetes-he
 ## Deploy `nginx-ingress-controller` with RBAC enabled
 
 ```bash
-NAMESPACE="kubeflow"
+helm repo add stable https://charts.helm.sh/stable
+
+# NAMESPACE="kubeflow"
+NAMESPACE="istio-system"
 helm install \
   --name nginx-ingress \
   --namespace ${NAMESPACE} \
   stable/nginx-ingress \
   --set rbac.create=true \
-  --set controller.publishService.enabled=true
+  --set controller.publishService.enabled=true \
+  --set ingressShim.defaultIssuerName=letsencrypt-prod
+  # --set ingressShim.defaultIssuerKind=ClusterIssuer 
 # RBAC disabled
 # helm install --name nginx-ingress stable/nginx-ingress
+# helm delete --purge nginx-ingress
 ```
 
 ```bash
-$ kubectl get service nginx-ingress-controller
+$ kubectl -n ${NAMESPACE} get service nginx-ingress-controller
 
 NAME:   nginx-ingress
 LAST DEPLOYED: Sat Dec 19 03:12:01 2020
-NAMESPACE: kubeflow
+NAMESPACE: istio-system
 STATUS: DEPLOYED
 
 RESOURCES:
@@ -147,16 +153,295 @@ spec:
       name: letsencrypt
     http01: {}
 EOF
+
+## Let's Encrypt
+
+```yml
+```yml
+USER_EMAIL="pydemia@gmail.com"
+DOMAIN="kubeflow.pydemia.org"
+
+cat << EOF | kubectl apply -f -
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt
+  namespace: cert-manager
+spec:
+  acme:
+    email: pydemia@gmail.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    preferredChain: "ISRG Root X1"
+    privateKeySecretRef:
+      name: letsencrypt
+    http01: {}
+EOF
 ```
 
+
+```yml
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: nginx-tls
+  namespace: YOUR NAMESPACE
+spec:
+  secretName: nginx-tls
+  issuerRef:
+    name: letsencrypt
+    kind: ClusterIssuer
+  dnsNames:
+    - "*.pydemia.org"
+  acme:
+    config:
+      - dns01:
+          provider: route53
+        domains:
+          - "*.pydemia.org"
+```
+
+```bash
+kubectl apply -f issuer.yaml
+# kubectl apply -f clusterissuer.yaml
+# kubectl apply -f certificate-http-nginx.yaml
+
+kubectl describe -f issuer.yaml
+# kubectl describe -f clusterissuer.yaml
+# kubectl describe -f certificate-http-nginx.yaml
+```
 ## Deploy an Ingress Resource
 
 https://github.com/GoogleCloudPlatform/community/blob/master/tutorials/nginx-ingress-gke/ingress-resource.yaml
+
+```yml
+...
+metadata:
+  name: kubeflow-ingress
+  namespace: kubeflow
+  annotations:
+    # cert-manager.io/issuer: letsencrypt-prod
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    kubernetes.io/ingress.class: nginx
+...
+spec:
+  tls:
+  - hosts:
+    - kubeflow.pydemia.org
+    secretName: nginx-tls
+...
+```
+
 
 ```bash
 # kubectl -n default annotate ingress kubeflow-ingress \
 #   kubernetes.io/ingress.class: nginx
 
 kubectl apply -f kubeflow-ingress.yaml
+kubectl describe -f kubeflow-ingress.yaml
 ```
 
+
+Then, Automatically create `certificates.cert-manager.io` named `nginx-tls-prod` or `nginx-tls-staging`.
+You should edit this as the following:
+
+
+
+```bash
+kubectl -n kubeflow edit certificates.cert-manager.io nginx-tls-prod
+```
+
+From: 
+
+```bash
+spec:
+  dnsNames:
+  - kf-dev.pydemia.org
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: letsencrypt-prod
+  secretName: nginx-tls-prod
+```
+
+To:
+
+```bash
+spec:
+  dnsNames:
+  - kf-dev.pydemia.org
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: letsencrypt-prod
+  secretName: nginx-tls-prod
+  acme:
+    config:
+      - http01:
+        ingressClass: nginx
+        domains:
+        - kf-dev.pydemia.org
+```
+
+```yml
+kubectl -n kubeflow patch certificates.cert-manager.io nginx-tls-prod \
+  --type merge \
+  --patch "spec:
+  dnsNames:
+  - kf-dev.pydemia.org
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: letsencrypt-staging
+  secretName: nginx-tls-staging
+  acme:
+    config:
+      - http01:
+        ingressClass: nginx
+        domains:
+        - kf-dev.pydemia.org
+"
+```
+
+Troubleshooting:
+
+Waiting:
+
+```bash
+kubectl -n kubeflow describe certificates.cert-manager.io nginx-tls
+kubectl -n kubeflow describe certificaterequests.cert-manager.io nginx-tls-prod-4287005911
+```
+
+Waiting: 
+
+```ascii
+Spec:
+  Dns Names:
+    kf.pydemia.org
+  Issuer Ref:
+    Group:      cert-manager.io
+    Kind:       Issuer
+    Name:       letsencrypt-prod
+  Secret Name:  nginx-tls-prod
+Status:
+  Conditions:
+    Last Transition Time:  2020-12-22T09:06:42Z
+    Message:               Waiting for CertificateRequest "nginx-tls-prod-4287005911" to complete
+    Reason:                InProgress
+    Status:                False
+    Type:                  Ready
+Events:
+  Type    Reason     Age   From          Message
+  ----    ------     ----  ----          -------
+  Normal  Requested  57s   cert-manager  Created new CertificateRequest resource "nginx-tls-prod-4287005911"
+```
+
+Pending:
+
+```ascii
+Status:
+  Conditions:
+    Last Transition Time:  2020-12-22T09:06:42Z
+    Message:               Waiting on certificate issuance from order kubeflow/nginx-tls-prod-4287005911-2607685879: "pending"
+    Reason:                Pending
+    Status:                False
+    Type:                  Ready
+Events:
+  Type    Reason        Age    From          Message
+  ----    ------        ----   ----          -------
+  Normal  OrderCreated  2m44s  cert-manager  Created Order resource kubeflow/nginx-tls-prod-4287005911-2607685879
+```
+
+```bash
+# <  v0.11: orders.acme.cert-manager.io
+# >= v0.11: orders.certmanager.k8s.io  
+kubectl -n kubeflow describe orders.acme.cert-manager.io nginx-tls-prod-1055599086-4229188518
+```
+
+
+---
+Activate Istio Authorization
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ClusterRbacConfig
+metadata:
+  name: default
+spec:
+  mode: 'ON_WITH_INCLUSION'
+  inclusion:
+    namespaces: ["default"]
+EOF
+```
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: centraldashboard
+  namespace: kubeflow
+spec:
+  rules:
+  - services:
+    - centraldashboard.kubeflow.svc.cluster.local
+  # - services: ["*"]
+  #   methods: ["GET"]
+  #   constraints:
+  #   - key: "destination.labels[app]"
+  #     values: ["productpage", "details", "reviews", "ratings"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: bind-centraldashboard
+  namespace: kubeflow
+spec:
+  subjects:
+    - user: "*"
+  # - properties:
+  #     source.namespace: istio-system
+  roleRef:
+    kind: ServiceRole
+    name: centraldashboard
+EOF
+```
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: centraldashboard-auth
+  namespace: kubeflow
+spec:
+  selector:
+    matchLabels:
+      app: centraldashboard
+  rules:
+  - to:
+    - operation:
+        methods: ["GET", "POST"]
+EOF
+```
+
+
+https://istio.io/latest/docs/tasks/security/authorization/authz-http/
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: centraldashboard-auth
+  namespace: kubeflow
+spec:
+  selector:
+    matchLabels:
+      app: centraldashboard
+  rules:
+  - to:
+    - operation:
+        methods: ["GET", "POST"]
+EOF
+```

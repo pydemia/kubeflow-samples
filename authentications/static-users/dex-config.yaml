@@ -1,0 +1,26 @@
+issuer: http://dex.auth.svc.cluster.local:5556/dex
+storage:
+  type: kubernetes
+  config:
+    inCluster: true
+web:
+  http: 0.0.0.0:5556
+logger:
+  level: "debug"
+  format: text
+oauth2:
+  skipApprovalScreen: true
+enablePasswordDB: true
+staticPasswords:
+- email: admin@kubeflow.org
+  hash: $2b$10$cLvYVjkGUMxP/jsJLOCOuOlsBwnMmRZ1CuOcL0dFCbmC4dUCwjDWG
+  username: admin
+  userID: 08a8684b-db88-4b73-90a9-3cd1661f5466
+- email: pydemia@gmail.com
+  hash: $2b$10$cLvYVjkGUMxP/jsJLOCOuOlsBwnMmRZ1CuOcL0dFCbmC4dUCwjDWG
+  username: pydemia
+staticClients:
+- id: kubeflow-oidc-authservice
+  redirectURIs: ["/login/oidc"]
+  name: 'Dex Login Application'
+  secret: pUBnBOY80SnXgjibTYM9ZWNzY2xreNGQok

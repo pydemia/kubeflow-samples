@@ -1,0 +1,14 @@
+spec:
+  dnsNames:
+  - kf-dev.pydemia.org
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: letsencrypt-staging
+  secretName: nginx-tls-staging
+  acme:
+    config:
+      - http01:
+        ingressClass: nginx
+        domains:
+        - kf-dev.pydemia.org

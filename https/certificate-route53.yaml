@@ -1,0 +1,18 @@
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: nginx-tls
+  namespace: YOUR NAMESPACE
+spec:
+  secretName: nginx-tls
+  issuerRef:
+    name: letsencrypt
+    kind: ClusterIssuer
+  dnsNames:
+    - "*.pydemia.org"
+  acme:
+    config:
+      - dns01:
+          provider: route53
+        domains:
+          - "*.pydemia.org"
