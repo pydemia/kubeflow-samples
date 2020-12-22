@@ -1,6 +1,9 @@
 # apiVersion: certmanager.k8s.io/v1alpha1
 apiVersion: cert-manager.io/v1alpha2
+<<<<<<< HEAD
 # apiVersion: cert-manager.io/v1
+=======
+>>>>>>> 1a874d6648d8070ad57eac53eb52fa405bef1092
 kind: ClusterIssuer
 metadata:
   name: letsencrypt-staging
@@ -24,7 +27,10 @@ spec:
 ---
 # apiVersion: certmanager.k8s.io/v1alpha1
 apiVersion: cert-manager.io/v1alpha2
+<<<<<<< HEAD
 # apiVersion: cert-manager.io/v1
+=======
+>>>>>>> 1a874d6648d8070ad57eac53eb52fa405bef1092
 kind: ClusterIssuer
 metadata:
   name: letsencrypt-prod

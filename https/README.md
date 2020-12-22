@@ -240,13 +240,36 @@ kubectl apply -f kubeflow-ingress.yaml
 kubectl describe -f kubeflow-ingress.yaml
 ```
 
+<<<<<<< HEAD
 
 Then, Automatically create `certificates.cert-manager.io` named `nginx-tls-prod` or `nginx-tls-staging`.
+=======
+```yml
+...
+metadata:
+  name: kubeflow-ingress
+  namespace: kubeflow
+  annotations:
+    # cert-manager.io/issuer: letsencrypt-prod
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    kubernetes.io/ingress.class: nginx
+...
+spec:
+  tls:
+  - hosts:
+    - kubeflow.pydemia.org
+    secretName: nginx-tls
+...
+```
+
+Then, Automatically create `certificates.cert-manager.io` named `nginx-tls`.
+>>>>>>> 1a874d6648d8070ad57eac53eb52fa405bef1092
 You should edit this as the following:
 
 
 
 ```bash
+<<<<<<< HEAD
 kubectl -n kubeflow edit certificates.cert-manager.io nginx-tls-prod
 ```
 
@@ -408,6 +431,61 @@ EOF
 ```
 
 ```bash
+=======
+kubectl -n kubeflow edit certificates.cert-manager.io nginx-tls
+```
+
+---
+Activate Istio Authorization
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ClusterRbacConfig
+metadata:
+  name: default
+spec:
+  mode: 'ON_WITH_INCLUSION'
+  inclusion:
+    namespaces: ["default"]
+EOF
+```
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRole
+metadata:
+  name: centraldashboard
+  namespace: kubeflow
+spec:
+  rules:
+  - services:
+    - centraldashboard.kubeflow.svc.cluster.local
+  # - services: ["*"]
+  #   methods: ["GET"]
+  #   constraints:
+  #   - key: "destination.labels[app]"
+  #     values: ["productpage", "details", "reviews", "ratings"]
+---
+apiVersion: "rbac.istio.io/v1alpha1"
+kind: ServiceRoleBinding
+metadata:
+  name: bind-centraldashboard
+  namespace: kubeflow
+spec:
+  subjects:
+    - user: "*"
+  # - properties:
+  #     source.namespace: istio-system
+  roleRef:
+    kind: ServiceRole
+    name: centraldashboard
+EOF
+```
+
+```bash
+>>>>>>> 1a874d6648d8070ad57eac53eb52fa405bef1092
 kubectl apply -f - <<EOF
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy

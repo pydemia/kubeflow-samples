@@ -34,7 +34,7 @@ spec:
       paths:
       - path: /*
         backend:
-          serviceName: centraldashboard
+          serviceName: istio-ingressgateway
           servicePort: 80
 ---
 # apiVersion: extensions/v1beta1
