@@ -1,18 +1,13 @@
-# apiVersion: certmanager.k8s.io/v1alpha1
-apiVersion: cert-manager.io/v1alpha2
-<<<<<<< HEAD
-# apiVersion: cert-manager.io/v1
-=======
->>>>>>> 1a874d6648d8070ad57eac53eb52fa405bef1092
-kind: ClusterIssuer
+apiVersion: cert-manager.io/v1alpha2  # >= v0.11
+kind: Issuer
 metadata:
   name: letsencrypt-staging
-  # namespace: kubeflow
+  namespace: kubeflow
 spec:
   acme:
     email: pydemia@gmail.com
     server: https://acme-staging-v02.api.letsencrypt.org/directory
-    # preferredChain: "ISRG Root X1"
+    preferredChain: "ISRG Root X1"
     privateKeySecretRef:
       # Secret resource used to store the account's private key.
       # `kubectl -n cert-manager get secrets letsencrypt-staging-private-key`
@@ -25,48 +20,65 @@ spec:
         ingress:
           class: nginx
 ---
-# apiVersion: certmanager.k8s.io/v1alpha1
-apiVersion: cert-manager.io/v1alpha2
-<<<<<<< HEAD
-# apiVersion: cert-manager.io/v1
-=======
->>>>>>> 1a874d6648d8070ad57eac53eb52fa405bef1092
-kind: ClusterIssuer
+# apiVersion: certmanager.k8s.io/v1alpha1  # < v0.11
+apiVersion: cert-manager.io/v1alpha2  # >= v0.11
+kind: Issuer
 metadata:
   name: letsencrypt-prod
-  # namespace: kubeflow
+  namespace: kubeflow
 spec:
   acme:
     email: pydemia@gmail.com
     server: https://acme-v02.api.letsencrypt.org/directory
-    # preferredChain: "ISRG Root X1"
+    preferredChain: "ISRG Root X1"
     privateKeySecretRef:
       # Secret resource used to store the account's private key.
-      # `kubectl -n cert-manager get secrets letsencrypt-staging-private-key`
+      # `kubectl -n cert-manager get secrets letsencrypt-prod-private-key`
       name: letsencrypt-prod-private-key
-  solvers:
-  # An empty 'selector' means that this solver matches all domains
-  - selector: {}
-    http01:
-       ingress:
-         class:  nginx
-# ---
-# apiVersion: cert-manager.io/v1alpha2
-# kind: Certificate
-# metadata:
-#   name: nginx-tls
-#   namespace: kubeflow
-# spec:
-#   secretName: nginx-tls
-#   issuerRef:
-#     name: letsencrypt-prod
-#     kind: ClusterIssuer
-#   commonName: kubeflow.pydemia.org
-#   dnsNames:
-#     - kubeflow.pydemia.org
-#   acme:
-#     config:
-#       - http01:
-#         ingressClass: nginx
-#         domains:
-#           - kubeflow.pydemia.org
+    solvers:
+    # An empty 'selector' means that this solver matches all domains
+    - selector: {}
+      http01:
+        ingress:
+          class: nginx
+---
+# apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: kubeflow-ingress-prod
+  namespace: kubeflow
+  annotations:
+    # https://docs.cert-manager.io/en/release-0.11/tasks/issuing-certificates/ingress-shim.html#supported-annotations
+    # certmanager.k8s.io/issuer  # < v0.11
+    # cert-manager.io/issuer  # >= v0.11
+    cert-manager.io/issuer: letsencrypt-prod
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    kubernetes.io/ingress.class: nginx
+    # On Google Kubernetes Engine,
+    # if no annotation is defined under the metadata section,
+    # the Ingress Resource uses the L7 load balancer to serve traffic.
+    # 'gce' for external LB and 'gce-internal' for internal LB
+    # This method can also be forced by setting the annotation's value
+    # to gce as shown below:
+    # kubernetes.io/ingress.class: gce
+    nginx.ingress.kubernetes.io/ssl-redirect: "true" # "true"
+    # kubernetes.io/tls-acme: "true"  # < Could not determine issuer for ingress due to bad annotations: failed to determine issuer name to be used for ingress resource
+    nginx.ingress.kubernetes.io/tls-acme: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  tls:  # < placing a host in the TLS config will indicate a cert should be created
+  - hosts:
+    - kf.pydemia.org
+    secretName: nginx-tls-prod  # < cert-manager will store the created certificate in this secret.
+    # `kubectl -n kubeflow describe certificates.cert-manager.io nginx-tls-prod`
+  rules:
+  - host: kf.pydemia.org
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: centraldashboard
+          servicePort: 80
+          # serviceName: istio-ingressgateway
+          # servicePort: 80

@@ -48,13 +48,27 @@ spec:
       # Secret resource used to store the account's private key.
       # `kubectl -n cert-manager get secrets letsencrypt-staging-private-key`
       name: letsencrypt-staging-private-key
-    # http01: {}
     solvers:
     # An empty 'selector' means that this solver matches all domains
-      # - selector: {}
-      - http01:
-          ingress:
-            class: nginx
+    - selector: {}
+      http01:
+        ingress:
+          class: nginx
+    # http01: {}
+  # solvers:
+  #   # An empty 'selector' means that this solver matches all domains
+  #   # - selector: {}
+  #   # - selector:
+  #   #   matchLabels:
+  #   #     "use-http01-solver": "true"
+  #   #     dnsNames:
+  #   #     - kf-dev.pydemia.org
+  #   #   http01:
+  #   #     ingress:
+  #   #       class: nginx
+  # - http01:
+  #   ingress:
+  #     class: nginx
 ---
 # apiVersion: certmanager.k8s.io/v1alpha1  # < v0.11
 apiVersion: cert-manager.io/v1alpha2  # >= v0.11
@@ -71,9 +85,23 @@ spec:
       # Secret resource used to store the account's private key.
       # `kubectl -n cert-manager get secrets letsencrypt-prod-private-key`
       name: letsencrypt-prod-private-key
-  solvers:
-  # An empty 'selector' means that this solver matches all domains
-    # - selector: {}
-    - http01:
+    solvers:
+    # An empty 'selector' means that this solver matches all domains
+    - selector: {}
+      http01:
         ingress:
           class: nginx
+  # solvers:
+  # # An empty 'selector' means that this solver matches all domains
+  # # - selector: {}
+  # # - selector:
+  # #   matchLabels:
+  # #     "use-http01-solver": "true"
+  # #     dnsNames:
+  # #     - kf-dev.pydemia.org
+  # #   http01:
+  # #     ingress:
+  # #       class: nginx
+  # - http01:
+  #   ingress:
+  #     class: nginx

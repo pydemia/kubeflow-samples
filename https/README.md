@@ -201,12 +201,12 @@ spec:
 ```
 
 ```bash
-kubectl apply -f issuer.yaml
-# kubectl apply -f clusterissuer.yaml
+kubectl apply -f issuers.yaml
+# kubectl apply -f clusterissuers.yaml
 # kubectl apply -f certificate-http-nginx.yaml
 
-kubectl describe -f issuer.yaml
-# kubectl describe -f clusterissuer.yaml
+kubectl describe -f issuers.yaml
+# kubectl describe -f clusterissuers.yaml
 # kubectl describe -f certificate-http-nginx.yaml
 ```
 ## Deploy an Ingress Resource
@@ -240,36 +240,13 @@ kubectl apply -f kubeflow-ingress.yaml
 kubectl describe -f kubeflow-ingress.yaml
 ```
 
-<<<<<<< HEAD
 
 Then, Automatically create `certificates.cert-manager.io` named `nginx-tls-prod` or `nginx-tls-staging`.
-=======
-```yml
-...
-metadata:
-  name: kubeflow-ingress
-  namespace: kubeflow
-  annotations:
-    # cert-manager.io/issuer: letsencrypt-prod
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    kubernetes.io/ingress.class: nginx
-...
-spec:
-  tls:
-  - hosts:
-    - kubeflow.pydemia.org
-    secretName: nginx-tls
-...
-```
-
-Then, Automatically create `certificates.cert-manager.io` named `nginx-tls`.
->>>>>>> 1a874d6648d8070ad57eac53eb52fa405bef1092
 You should edit this as the following:
 
 
 
 ```bash
-<<<<<<< HEAD
 kubectl -n kubeflow edit certificates.cert-manager.io nginx-tls-prod
 ```
 
@@ -306,7 +283,7 @@ spec:
 ```
 
 ```yml
-kubectl -n kubeflow patch certificates.cert-manager.io nginx-tls-prod \
+kubectl -n kubeflow patch certificates.cert-manager.io nginx-tls-staging \
   --type merge \
   --patch "spec:
   dnsNames:
@@ -322,6 +299,26 @@ kubectl -n kubeflow patch certificates.cert-manager.io nginx-tls-prod \
         ingressClass: nginx
         domains:
         - kf-dev.pydemia.org
+"
+```
+
+```yml
+kubectl -n kubeflow patch certificates.cert-manager.io nginx-tls-prod \
+  --type merge \
+  --patch "spec:
+  dnsNames:
+  - kf.pydemia.org
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: letsencrypt-prod
+  secretName: nginx-tls-prod
+  acme:
+    config:
+      - http01:
+        ingressClass: nginx
+        domains:
+        - kf.pydemia.org
 "
 ```
 
@@ -377,9 +374,28 @@ Events:
 ```bash
 # <  v0.11: orders.acme.cert-manager.io
 # >= v0.11: orders.certmanager.k8s.io  
-kubectl -n kubeflow describe orders.acme.cert-manager.io nginx-tls-prod-1055599086-4229188518
+kubectl -n kubeflow describe orders.acme.cert-manager.io nginx-tls-prod-4287005911-2607685879
+
+kubectl -n kubeflow delete certificates.cert-manager.io nginx-tls-prod
+kubectl -n kubeflow delete certificates.cert-manager.io nginx-tls-staging
+kubectl -n kubeflow delete certificaterequests.cert-manager.io nginx-tls-prod-4287005911
+kubectl -n kubeflow delete orders.acme.cert-manager.io nginx-tls-prod-4287005911-2607685879
 ```
 
+
+kubectl delete -f letsencrypt-nginx.yaml
+kubectl -n kubeflow delete certificates.cert-manager.io nginx-tls-prod
+kubectl -n kubeflow delete certificates.cert-manager.io nginx-tls-staging
+
+
+---
+
+```bash
+kubectl apply -f letsencrypt-nginx.yaml
+kubectl -n kubeflow describe certificates.cert-manager.io nginx-tls
+kubectl -n kubeflow describe certificaterequests.cert-manager.io nginx-tls-prod-4287005911
+kubectl -n kubeflow describe orders.acme.cert-manager.io nginx-tls-prod-4287005911-2607685879
+```
 
 ---
 Activate Istio Authorization
@@ -431,61 +447,6 @@ EOF
 ```
 
 ```bash
-=======
-kubectl -n kubeflow edit certificates.cert-manager.io nginx-tls
-```
-
----
-Activate Istio Authorization
-
-```bash
-kubectl apply -f - <<EOF
-apiVersion: "rbac.istio.io/v1alpha1"
-kind: ClusterRbacConfig
-metadata:
-  name: default
-spec:
-  mode: 'ON_WITH_INCLUSION'
-  inclusion:
-    namespaces: ["default"]
-EOF
-```
-
-```bash
-kubectl apply -f - <<EOF
-apiVersion: "rbac.istio.io/v1alpha1"
-kind: ServiceRole
-metadata:
-  name: centraldashboard
-  namespace: kubeflow
-spec:
-  rules:
-  - services:
-    - centraldashboard.kubeflow.svc.cluster.local
-  # - services: ["*"]
-  #   methods: ["GET"]
-  #   constraints:
-  #   - key: "destination.labels[app]"
-  #     values: ["productpage", "details", "reviews", "ratings"]
----
-apiVersion: "rbac.istio.io/v1alpha1"
-kind: ServiceRoleBinding
-metadata:
-  name: bind-centraldashboard
-  namespace: kubeflow
-spec:
-  subjects:
-    - user: "*"
-  # - properties:
-  #     source.namespace: istio-system
-  roleRef:
-    kind: ServiceRole
-    name: centraldashboard
-EOF
-```
-
-```bash
->>>>>>> 1a874d6648d8070ad57eac53eb52fa405bef1092
 kubectl apply -f - <<EOF
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy

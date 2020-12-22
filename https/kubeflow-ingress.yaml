@@ -27,15 +27,17 @@ spec:
   - hosts:
     - kf.pydemia.org
     secretName: nginx-tls-prod  # < cert-manager will store the created certificate in this secret.
-    # `kubectl -n kubeflow describe certificates.cert-manager.io nginx-tls-staging`
+    # `kubectl -n kubeflow describe certificates.cert-manager.io nginx-tls-prod`
   rules:
   - host: kf.pydemia.org
     http:
       paths:
-      - path: /*
+      - path: /
         backend:
-          serviceName: istio-ingressgateway
+          serviceName: centraldashboard
           servicePort: 80
+          # serviceName: istio-ingressgateway
+          # servicePort: 80
 ---
 # apiVersion: extensions/v1beta1
 apiVersion: networking.k8s.io/v1beta1
@@ -71,7 +73,7 @@ spec:
   - host: kf-dev.pydemia.org
     http:
       paths:
-      - path: /*
+      - path: /
         backend:
           serviceName: centraldashboard
           servicePort: 80
